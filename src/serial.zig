@@ -1033,6 +1033,85 @@ const DCB = extern struct {
 extern "kernel32" fn GetCommState(hFile: std.os.windows.HANDLE, lpDCB: *DCB) callconv(std.os.windows.WINAPI) std.os.windows.BOOL;
 extern "kernel32" fn SetCommState(hFile: std.os.windows.HANDLE, lpDCB: *DCB) callconv(std.os.windows.WINAPI) std.os.windows.BOOL;
 
+/// Gets the number of bytes waiting in the input buffer in a non-blocking way.
+pub fn getBytesInWaiting(port: std.fs.File) !usize {
+    switch (builtin.os.tag) {
+        .windows => {
+            var comstat: COMSTAT = undefined;
+            const success = ClearCommError(port.handle, null, &comstat);
+            if (success == 0) {
+                // TODO: Use GetLastError to get more info
+                return error.GetStatusError;
+            }
+            return comstat.bytesInOutputBuffer;
+        },
+
+        .linux => {
+            var number_of_unread_bytes: c_int = undefined;
+
+            const err = std.os.linux.syscall3(.ioctl, @as(usize, @bitCast(@as(isize, port.handle))), TIOCINQ, @intFromPtr(&number_of_unread_bytes));
+            if (err != 0) {
+                std.debug.print("ioctl TIOCINQ failed: {d}\r\n", .{err});
+                return error.GetStatusError;
+            }
+
+            return @intCast(number_of_unread_bytes);
+        },
+
+        .macos => {
+            var number_of_unread_bytes: c_int = undefined;
+
+            const err = std.c.ioctl(port.handle, TIOCINQ, &number_of_unread_bytes);
+            if (err != 0) {
+                std.debug.print("ioctl TIOCINQ failed: {d}\r\n", .{err});
+                return error.GetStatusError;
+            }
+
+            return @intCast(number_of_unread_bytes);
+        },
+        else => @compileError("unsupported OS, please implement!"),
+    }
+}
+
+const COMSTAT = extern struct {
+    /// If this member is TRUE, transmission is waiting for the CTS (clear-to-send) signal to be sent.
+    clearToSendHold: std.os.windows.DWORD,
+    /// If this member is TRUE, transmission is waiting for the DSR (data-set-ready) signal to be sent.
+    dataSetReadyHold: std.os.windows.DWORD,
+    /// If this member is TRUE, transmission is waiting for the RLSD (receive-line-signal-detect) signal to be sent.
+    receiveLineSignalDetectHold: std.os.windows.DWORD,
+
+    /// If this member is TRUE, transmission is waiting because the XOFF character was received.
+    xoffHold: std.os.windows.DWORD,
+
+    /// If this member is TRUE, transmission is waiting because the XOFF character was transmitted.
+    /// (Transmission halts when the XOFF character is transmitted to a system that takes the next
+    /// character as XON, regardless of the actual character.)
+    xoffSent: std.os.windows.DWORD,
+
+    /// If this member is TRUE, the end-of-file (EOF) character has been received.
+    fEof: std.os.windows.DWORD,
+
+    /// If this member is TRUE, there is a character queued for transmission that has come to the
+    /// communications device by way of the TransmitCommChar function. The communications device
+    /// transmits such a character ahead of other characters in the device's output buffer.
+    txim: std.os.windows.DWORD,
+
+    /// Reserved, do not use.
+    _reserved: std.os.windows.DWORD,
+
+    /// The number of bytes received by the serial provider but not yet read by a ReadFile operation.
+    bytesInInputBuffer: std.os.windows.DWORD,
+
+    /// The number of bytes of user data remaining to be transmitted for all write operations. This value will be zero for a nonoverlapped write.
+    bytesInOutputBuffer: std.os.windows.DWORD,
+};
+
+extern "kernel32" fn ClearCommError(hFile: std.os.windows.HANDLE, lpErrors: ?*std.os.windows.DWORD, lpStat: ?*COMSTAT) callconv(std.os.windows.WINAPI) std.os.windows.BOOL;
+
+const FIONREAD = 0x541B;
+const TIOCINQ = FIONREAD;
+
 test "iterate ports" {
     var it = try list();
     while (try it.next()) |port| {
