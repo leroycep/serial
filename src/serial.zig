@@ -1043,7 +1043,7 @@ pub fn setRecommendedBufferSize(port: std.fs.File, input_buffer_size: usize, out
             const success = SetupComm(port.handle, @intCast(input_buffer_size), @intCast(output_buffer_size));
             if (success == 0) {
                 // TODO: Use GetLastError to get more info
-                return error.GetStatusError;
+                return error.WindowsError;
             }
         },
 
