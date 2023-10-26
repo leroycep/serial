@@ -1074,31 +1074,33 @@ pub fn getBytesInWaiting(port: std.fs.File) !usize {
 }
 
 const COMSTAT = extern struct {
-    /// If this member is TRUE, transmission is waiting for the CTS (clear-to-send) signal to be sent.
-    clearToSendHold: std.os.windows.DWORD,
-    /// If this member is TRUE, transmission is waiting for the DSR (data-set-ready) signal to be sent.
-    dataSetReadyHold: std.os.windows.DWORD,
-    /// If this member is TRUE, transmission is waiting for the RLSD (receive-line-signal-detect) signal to be sent.
-    receiveLineSignalDetectHold: std.os.windows.DWORD,
+    flags: packed struct(std.os.windows.DWORD) {
+        /// If this member is TRUE, transmission is waiting for the CTS (clear-to-send) signal to be sent.
+        clearToSendHold: bool,
+        /// If this member is TRUE, transmission is waiting for the DSR (data-set-ready) signal to be sent.
+        dataSetReadyHold: bool,
+        /// If this member is TRUE, transmission is waiting for the RLSD (receive-line-signal-detect) signal to be sent.
+        receiveLineSignalDetectHold: bool,
 
-    /// If this member is TRUE, transmission is waiting because the XOFF character was received.
-    xoffHold: std.os.windows.DWORD,
+        /// If this member is TRUE, transmission is waiting because the XOFF character was received.
+        xoffHold: bool,
 
-    /// If this member is TRUE, transmission is waiting because the XOFF character was transmitted.
-    /// (Transmission halts when the XOFF character is transmitted to a system that takes the next
-    /// character as XON, regardless of the actual character.)
-    xoffSent: std.os.windows.DWORD,
+        /// If this member is TRUE, transmission is waiting because the XOFF character was transmitted.
+        /// (Transmission halts when the XOFF character is transmitted to a system that takes the next
+        /// character as XON, regardless of the actual character.)
+        xoffSent: bool,
 
-    /// If this member is TRUE, the end-of-file (EOF) character has been received.
-    fEof: std.os.windows.DWORD,
+        /// If this member is TRUE, the end-of-file (EOF) character has been received.
+        fEof: bool,
 
-    /// If this member is TRUE, there is a character queued for transmission that has come to the
-    /// communications device by way of the TransmitCommChar function. The communications device
-    /// transmits such a character ahead of other characters in the device's output buffer.
-    txim: std.os.windows.DWORD,
+        /// If this member is TRUE, there is a character queued for transmission that has come to the
+        /// communications device by way of the TransmitCommChar function. The communications device
+        /// transmits such a character ahead of other characters in the device's output buffer.
+        txim: bool,
 
-    /// Reserved, do not use.
-    _reserved: std.os.windows.DWORD,
+        /// Reserved, do not use.
+        _reserved: u25 = undefined,
+    },
 
     /// The number of bytes received by the serial provider but not yet read by a ReadFile operation.
     bytesInInputBuffer: std.os.windows.DWORD,
