@@ -1033,6 +1033,29 @@ const DCB = extern struct {
 extern "kernel32" fn GetCommState(hFile: std.os.windows.HANDLE, lpDCB: *DCB) callconv(std.os.windows.WINAPI) std.os.windows.BOOL;
 extern "kernel32" fn SetCommState(hFile: std.os.windows.HANDLE, lpDCB: *DCB) callconv(std.os.windows.WINAPI) std.os.windows.BOOL;
 
+/// Only effective on windows.
+///
+/// Gives the windows kernel a hint about the size the input buffer should be.
+/// Useful if you want to read from a serial port in a non-blocking way with `getBytesInWaiting`.
+pub fn setRecommendedBufferSize(port: std.fs.File, input_buffer_size: usize, output_buffer_size: usize) !void {
+    switch (builtin.os.tag) {
+        .windows => {
+            const success = SetupComm(port.handle, @intCast(input_buffer_size), @intCast(output_buffer_size));
+            if (success == 0) {
+                // TODO: Use GetLastError to get more info
+                return error.GetStatusError;
+            }
+        },
+
+        .linux => {},
+        .macos => {},
+
+        else => @compileError("unsupported OS, please implement!"),
+    }
+}
+
+extern "kernel32" fn SetupComm(hFile: std.os.windows.HANDLE, dwInQueue: std.os.windows.DWORD, dwOutQueue: std.os.windows.DWORD) callconv(std.os.windows.WINAPI) std.os.windows.BOOL;
+
 /// Gets the number of bytes waiting in the input buffer in a non-blocking way.
 pub fn getBytesInWaiting(port: std.fs.File) !usize {
     switch (builtin.os.tag) {
